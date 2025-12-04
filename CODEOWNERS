@@ -1,0 +1,11 @@
+# Code owners for repository
+# For paths not matched below, this file falls back to the repository administrators.
+
+# Default owner for everything
+* @vanmaul
+
+# Docs
+/docs/ @vanmaul
+
+# GitHub Actions and workflows
+.github/workflows/ @vanmaul
