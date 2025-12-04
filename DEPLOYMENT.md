@@ -1,58 +1,65 @@
-# Deployment & Secrets
+# Local Deployment (XAMPP / MySQL)
 
-This project is configured to deploy to Vercel via GitHub Actions. The workflow is located at:
+This project can run completely locally using XAMPP (or any local MySQL/MariaDB) for development. The repository previously contained instructions for deploying to Vercel — those workflows and files remain available, but the steps below focus on running locally.
 
-- `.github/workflows/deploy-vercel.yml`
+## Prerequisites
 
-## Required Secrets (GitHub repository)
+- Install Node.js (v18+ or v20 recommended)
+- Install XAMPP and start **Apache** and **MySQL** services
+- Optional: `npm` and `npx` are available via Node.js
 
-Add these repository secrets in GitHub (Settings → Secrets → Actions) for the deployment workflow to run successfully:
+## Setup local MySQL (XAMPP)
 
-- `VERCEL_TOKEN` – A personal token from your Vercel account (User > Settings > Tokens). Used to authenticate the deployment.
-- `VERCEL_ORG_ID` – Your Vercel organization ID (you can get this from the Project Settings → General or via the Vercel dashboard/API).
-- `VERCEL_PROJECT_ID` – Your Vercel project ID (from Project Settings → General or via Vercel dashboard/API).
+1. Start XAMPP Control Panel and start **MySQL** (and Apache if you plan to use phpMyAdmin).
+2. Open `http://localhost/phpmyadmin` and create a database, e.g. `document_approval_db`.
 
-Optional but recommended secrets for production:
+## Configure environment
 
-- `DATABASE_URL` – Production database connection string (e.g., `postgresql://user:pass@host:5432/dbname`).
-- `NEXTAUTH_SECRET` – A strong (32+ bytes) secret for NextAuth JWT/session signing. Generate with `openssl rand -base64 32` or similar.
-- `NEXTAUTH_URL` – Public URL for your deployment (e.g., `https://your-domain.com`).
+Edit (or create) `.env.local` in the project root and set the following variables:
 
-## How to add secrets via GitHub UI
-
-1. Open the repository on GitHub: `https://github.com/<owner>/<repo>`.
-2. Click `Settings` → `Secrets` → `Actions`.
-3. Click `New repository secret` and add the name/value pairs listed above.
-
-## How to add secrets via `gh` CLI
-
-If you have the GitHub CLI installed and authenticated (`gh auth login`), you can add secrets from your terminal:
-
-```powershell
-# example: set VERCEL_TOKEN
-gh secret set VERCEL_TOKEN --body "<your-vercel-token>" 
-gh secret set VERCEL_ORG_ID --body "<your-org-id>"
-gh secret set VERCEL_PROJECT_ID --body "<your-project-id>"
-gh secret set NEXTAUTH_SECRET --body "$(openssl rand -base64 32)"
-gh secret set DATABASE_URL --body "postgresql://user:pass@host:5432/db"
+```env
+DATABASE_URL="mysql://root:@127.0.0.1:3306/document_approval_db"
+NEXTAUTH_SECRET="min-32-characters-secret-key-change-in-prod"
+NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_API_URL="http://localhost:3000"
+UPLOAD_DIR="./public/uploads"
 ```
 
-Note: Windows users may need to install OpenSSL or generate a base64 secret using PowerShell:
+Adjust the `root` user password if your local MySQL uses a password, e.g. `mysql://root:yourpass@127.0.0.1:3306/document_approval_db`.
+
+## Apply Prisma schema and seed data
+
+Run these commands from the project root:
 
 ```powershell
-# PowerShell base64 secret (32 bytes)
-[Convert]::ToBase64String((1..32 | ForEach-Object {Get-Random -Maximum 256}) -as [byte[]])
+# generate client
+npx prisma generate
+
+# create and apply migration (creates prisma/migrations)
+npx prisma migrate dev --name init
+
+# seed database (if seed script exists)
+node prisma/seed.js
 ```
 
-## Vercel project setup
+If you have issues with `migrate dev` (for example switching providers), you can use `npx prisma db push` to push schema changes directly.
 
-1. Create a project in Vercel and link it to this GitHub repository.
-2. Note the `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` from the project settings.
-3. Add the three Vercel secrets to GitHub (token/org/project id).
-4. On push to `main`, the GitHub Action `deploy-vercel.yml` will deploy to production.
+## Run the app locally
 
-## Troubleshooting
+Start the Next.js dev server (with `.env.local` present):
 
-- If the workflow fails with authentication errors, verify `VERCEL_TOKEN` and the org/project IDs.
-- If build errors occur, check the `Build` step output in the Actions run and ensure your Node version and environment variables are correct.
+```powershell
+npm run dev
+
+# or set env directly in PowerShell for the session:
+$env:DATABASE_URL = "mysql://root:@127.0.0.1:3306/document_approval_db" 
+$env:NEXTAUTH_URL = "http://localhost:3000"
+```
+
+Open `http://localhost:3000` in your browser. The app will redirect to `/login` and use the local MySQL database for authentication and data storage.
+
+## Notes
+
+- The repository still contains a GitHub Actions workflow for Vercel deployment (`.github/workflows/deploy-vercel.yml`) if you later want automatic deployments — this is optional and can be removed.
+- For production deployment, replace XAMPP with a managed database (Postgres/MySQL) and set secure secrets in your deployment environment.
 
